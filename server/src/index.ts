@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -22,7 +22,7 @@ const openai = new OpenAI();
 const systemMessage =
   "You are a helpful assistant whose main purpose is to provide information on chinese cooking. Only provide detailed recipes when explicitly asked. Do not answer any questions unrelated to food. Respond in simplified chinese.";
 
-app.ws("/chat", (ws: WebSocket, req) => {
+app.ws("/chat", (ws: WebSocket, req: Request) => {
   ws.binaryType = "arraybuffer";
   const id = req.query.id as string;
   if (!id) {
@@ -93,7 +93,7 @@ app.ws("/chat", (ws: WebSocket, req) => {
   });
 });
 
-app.get("*", (req, res) => {
+app.get("*", (req: Request, res: Response) => {
   res.sendFile(path.join(__dirname + "/../../client/build/index.html"));
 });
 
