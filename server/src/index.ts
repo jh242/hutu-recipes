@@ -6,7 +6,6 @@ import OpenAI, { toFile } from "openai";
 import { WebSocket } from "ws";
 import { OpenAIRoles, Client } from "./types";
 import ws from "express-ws"; // Import express-ws
-import fs from "fs";
 
 dotenv.config();
 const { app } = ws(express()); // Wrap the app with express-ws
