@@ -1,11 +1,16 @@
 {
-  "name": "server",
+  "name": "hutu-recipes",
+  "workspaces": [
+    "client"
+  ],
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "start": "tsc && node dist/index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "tsc && cd client && yarn build",
+    "server": "nodemon ./server/dist/index.js",
+    "client": "cd client && yarn start",
+    "dev": "concurrently \"yarn server\" \"yarn client\""
   },
   "keywords": [],
   "author": "",
@@ -26,6 +31,9 @@
     "@types/express": "^4.17.21",
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.11.26",
+    "concurrently": "^8.2.2",
+    "nodemon": "^3.1.0",
     "typescript": "^5.4.2"
-  }
+  },
+  "packageManager": "yarn@4.1.1"
 }
