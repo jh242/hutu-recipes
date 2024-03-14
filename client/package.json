@@ -8,9 +8,7 @@
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "react-spinners": "^0.13.8",
-    "react-use-websocket": "^4.8.1"
-  },
-  "devDependencies": {
+    "react-use-websocket": "^4.8.1",
     "@types/react": "^18",
     "@types/react-dom": "^18"
   },
@@ -21,21 +19,10 @@
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
-    "extends": [
-      "react-app",
-      "react-app/jest"
-    ]
+    "extends": ["react-app", "react-app/jest"]
   },
   "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+    "production": [">0.2%", "not dead", "not op_mini all"],
+    "development": ["last 1 chrome version", "last 1 firefox version", "last 1 safari version"]
   }
 }
