@@ -1,10 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
+import ClipLoader from "react-spinners/ClipLoader";
 import useWebSocket, { ReadyState } from "react-use-websocket";
+import { AudioRecorder } from "react-audio-voice-recorder";
 import { playAudio } from "./utils";
 import "./App.css";
 
 function App() {
   const [conversation, setConversation] = useState<any[]>([]);
+  const [waitingForResponse, setWaiting] = useState(false);
   const context = useMemo(() => new (window.AudioContext || (window as any).webkitAudioContext)(), []);
 
   const { sendMessage, lastMessage, readyState, getWebSocket } = useWebSocket("ws://localhost:3001/chat?id=a", {
@@ -28,6 +31,7 @@ function App() {
         console.log("Preparing to receive binary audio data of size:", message.size);
       } else {
         console.log("Text message received:", message);
+        if (message.role !== "user") setWaiting(false);
         setConversation((prev) => prev.concat(message));
       }
     } else if (lastMessage.data instanceof ArrayBuffer) {
@@ -41,12 +45,13 @@ function App() {
 
   return (
     <div className="App">
-      <h1>Simple React Chat</h1>
+      <h1>糊涂菜谱</h1>
       {conversation.map((message, index) => (
         <div key={index}>
-          <strong>Bot</strong>: {message.content}
+          <strong>{message.role}</strong>: {message.content}
         </div>
       ))}
+      <ClipLoader loading={waitingForResponse} size={150} color={"#123abc"} />
       <input
         type="text"
         id="messageInput"
@@ -55,8 +60,20 @@ function App() {
           if (e.key === "Enter") {
             const message = e.currentTarget.value;
             sendMessage(message);
+            setWaiting(true);
             e.currentTarget.value = "";
           }
+        }}
+      />
+      <AudioRecorder
+        onRecordingComplete={(blob: any) => {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const buffer = e.target?.result as ArrayBuffer;
+            sendMessage(buffer);
+            setWaiting(true);
+          };
+          reader.readAsArrayBuffer(blob);
         }}
       />
     </div>

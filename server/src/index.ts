@@ -1,11 +1,12 @@
-import express, { Express, Request, Response } from "express";
+import express from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import cors from "cors";
-import OpenAI from "openai";
+import OpenAI, { toFile } from "openai";
 import { WebSocket } from "ws";
 import { OpenAIRoles, Client } from "./types";
 import ws from "express-ws"; // Import express-ws
+import fs from "fs";
 
 dotenv.config();
 const { app } = ws(express()); // Wrap the app with express-ws
@@ -19,9 +20,10 @@ app.use(morgan("tiny"));
 const clients: { [key: string]: Client } = {};
 const openai = new OpenAI();
 const systemMessage =
-  "You are a helpful assistant whose main purpose is to provide information on chinese cooking and responds in simplified chinese. Do not provide recipe steps and ingredients unless asked how to make a specific dish.";
+  "You are a helpful assistant whose main purpose is to provide information on chinese cooking. Only provide detailed recipes when explicitly asked. Respond in simplified chinese.";
 
 app.ws("/chat", (ws: WebSocket, req) => {
+  ws.binaryType = "arraybuffer";
   const id = req.query.id as string;
   if (!id) {
     ws.close(1008, "No id provided");
@@ -34,23 +36,40 @@ app.ws("/chat", (ws: WebSocket, req) => {
   };
   clients[id] = client;
 
-  ws.on("message", async (message: string) => {
-    try {
-      client.conversation.push({ role: OpenAIRoles.user, content: message, name: "user" });
-
-      const resp = await openai.chat.completions.create({
-        messages: client.conversation,
-        model: "gpt-4",
+  ws.on("message", async (message: string | ArrayBuffer) => {
+    let inputText = "";
+    if (message instanceof ArrayBuffer) {
+      // Convert the ArrayBuffer from the WebSocket message to a Buffer
+      const buffer = Buffer.from(message);
+      fs.writeFileSync("./audio.wav", buffer);
+      const transcription = await openai.audio.transcriptions.create({
+        file: await toFile(buffer, "audio.wav", {
+          type: "audio/wav",
+        }),
+        model: "whisper-1",
+        language: "zh",
       });
+      inputText = transcription.text;
+    } else {
+      inputText = message;
+    }
 
-      const responseMessage = resp.choices[0];
-      if (!responseMessage) {
-        ws.close(1011, "No response from OpenAI");
-        return;
-      }
-      client.conversation.push(responseMessage.message);
-      ws.send(JSON.stringify(responseMessage.message));
+    const userMessage = { role: OpenAIRoles.user, content: inputText, name: "user" };
+    ws.send(JSON.stringify(userMessage));
+    client.conversation.push(userMessage);
 
+    const resp = await openai.chat.completions.create({
+      messages: client.conversation,
+      model: "gpt-4",
+    });
+
+    const responseMessage = resp.choices[0];
+    if (!responseMessage) {
+      ws.close(1011, "No response from OpenAI");
+      return;
+    }
+    client.conversation.push(responseMessage.message);
+    try {
       const speech = await openai.audio.speech.create({
         input: responseMessage.message.content || "",
         model: "tts-1",
@@ -59,12 +78,9 @@ app.ws("/chat", (ws: WebSocket, req) => {
 
       // Obtain audio binary data as a buffer
       const audioBuffer = Buffer.from(await speech.arrayBuffer());
-
-      // To send binary data, first indicate to the client that binary data will follow
-      // This can be a simple protocol where you define a specific message structure
-      ws.send(JSON.stringify({ type: "audio", size: audioBuffer.byteLength })); // Send indicator + size
-
-      // Send the binary audio data
+      // Send audio and text together
+      ws.send(JSON.stringify({ type: "audio", size: audioBuffer.byteLength }));
+      ws.send(JSON.stringify(responseMessage.message));
       ws.send(audioBuffer);
     } catch (error) {
       // Handle any error that occurred during audio generation
