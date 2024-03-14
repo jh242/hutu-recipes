@@ -1,82 +1,82 @@
 import express, { Express, Request, Response } from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
+import cors from "cors";
 import OpenAI from "openai";
-import { OpenAiRoles } from "./types";
-import path from "path";
-import fs from "fs";
-import { ChatCompletionMessageParam } from "openai/resources";
+import { WebSocket } from "ws";
+import { OpenAIRoles, Client } from "./types";
+import ws from "express-ws"; // Import express-ws
 
 dotenv.config();
-
-const app: Express = express();
+const { app } = ws(express()); // Wrap the app with express-ws
 app.use(express.json());
+app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("tiny"));
 
-const clients: { [key: string]: { res: Response; conversation: any[] } } = {};
+// Type declaration for WebSocket
+
+const clients: { [key: string]: Client } = {};
 const openai = new OpenAI();
 const systemMessage =
   "You are a helpful assistant whose main purpose is to provide information on chinese cooking and responds in simplified chinese. Do not provide recipe steps and ingredients unless asked how to make a specific dish.";
 
-const chatConnectController = (req: Request, res: Response) => {
+app.ws("/chat", (ws: WebSocket, req) => {
   const id = req.query.id as string;
   if (!id) {
-    res.status(400).send("No id provided");
+    ws.close(1008, "No id provided");
     return;
   }
 
-  const headers = {
-    "Content-Type": "text/event-stream",
-    Connection: "keep-alive",
-    "Cache-Control": "no-cache",
+  const client: Client = {
+    conversation: [{ role: OpenAIRoles.system, content: systemMessage, name: "system" }],
+    ws: ws,
   };
+  clients[id] = client;
 
-  res.writeHead(200, headers);
-  clients[id] = { res, conversation: [{ role: OpenAiRoles.system, content: systemMessage, name: "system" }] };
+  ws.on("message", async (message: string) => {
+    try {
+      client.conversation.push({ role: OpenAIRoles.user, content: message, name: "user" });
 
-  res.on("close", () => {
+      const resp = await openai.chat.completions.create({
+        messages: client.conversation,
+        model: "gpt-4",
+      });
+
+      const responseMessage = resp.choices[0];
+      if (!responseMessage) {
+        ws.close(1011, "No response from OpenAI");
+        return;
+      }
+      client.conversation.push(responseMessage.message);
+      ws.send(JSON.stringify(responseMessage.message));
+
+      const speech = await openai.audio.speech.create({
+        input: responseMessage.message.content || "",
+        model: "tts-1",
+        voice: "alloy",
+      });
+
+      // Obtain audio binary data as a buffer
+      const audioBuffer = Buffer.from(await speech.arrayBuffer());
+
+      // To send binary data, first indicate to the client that binary data will follow
+      // This can be a simple protocol where you define a specific message structure
+      ws.send(JSON.stringify({ type: "audio", size: audioBuffer.byteLength })); // Send indicator + size
+
+      // Send the binary audio data
+      ws.send(audioBuffer);
+    } catch (error) {
+      // Handle any error that occurred during audio generation
+      console.error("Error sending response:", error);
+      // Optionally you can close the connection or just ignore the error
+    }
+  });
+
+  ws.on("close", () => {
     delete clients[id];
   });
-};
-
-const newChatMessageController = async (req: Request, res: Response) => {
-  const id = req.query.id as string;
-  if (!id || !clients[id]) {
-    res.status(400).send("No id provided");
-    return;
-  }
-  const message = req.body.message as string;
-  clients[id].conversation.push({ role: OpenAiRoles.user, content: message, name: "user" });
-
-  const resp = await openai.chat.completions.create({
-    messages: clients[id].conversation,
-    model: "gpt-4",
-  });
-
-  const responseMessage = resp.choices[0];
-  if (!responseMessage) {
-    res.status(500).send("No response from OpenAI");
-    return;
-  }
-  clients[id].conversation.push(responseMessage.message);
-  clients[id].res.write(`data: ${JSON.stringify(responseMessage.message)}`);
-
-  const speech = await openai.audio.speech.create({
-    input: responseMessage.message.content || "",
-    model: "tts-1",
-    voice: "alloy",
-  });
-
-  const speechBuffer = Buffer.from(await speech.arrayBuffer());
-  const speechFile = path.resolve("./speech.mp3");
-  await fs.promises.writeFile(speechFile, speechBuffer);
-  res.sendStatus(200);
-};
-
-app.get("/chat", chatConnectController);
-
-app.post("/chat", newChatMessageController);
+});
 
 app.listen(process.env.PORT, () => {
   console.log(`Server running on port ${process.env.PORT}`);
