@@ -14,8 +14,6 @@ app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("tiny"));
 
-// Type declaration for WebSocket
-
 const clients: { [key: string]: Client } = {};
 const openai = new OpenAI();
 const systemMessage =
@@ -92,6 +90,6 @@ app.ws("/chat", (ws: WebSocket, req) => {
   });
 });
 
-app.listen(process.env.PORT, () => {
-  console.log(`Server running on port ${process.env.PORT}`);
+app.listen(3001, () => {
+  console.log(`Server running on port 3001`);
 });
