@@ -9,8 +9,17 @@ function App() {
   const [conversation, setConversation] = useState<any[]>([]);
   const [waitingForResponse, setWaiting] = useState(false);
   const context = useMemo(() => new (window.AudioContext || (window as any).webkitAudioContext)(), []);
+  const id = useMemo(() => {
+    if (!window.localStorage.getItem("id")) window.localStorage.setItem("id", Date.now().toString());
+    return window.localStorage.getItem("id");
+  }, []);
 
-  const { sendMessage, lastMessage, readyState, getWebSocket } = useWebSocket("ws://localhost:3001/chat?id=a", {
+  const wsUrl =
+    process.env.NODE_ENV === "development"
+      ? `ws://localhost:3001/chat?id=${id}`
+      : `ws://${window.location.host}/chat?id=${id}`;
+
+  const { sendMessage, lastMessage, readyState, getWebSocket } = useWebSocket(wsUrl, {
     shouldReconnect: () => true,
     reconnectAttempts: 10,
     reconnectInterval: 3000,

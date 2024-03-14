@@ -2,10 +2,11 @@ import express from "express";
 import morgan from "morgan";
 import dotenv from "dotenv";
 import cors from "cors";
+import path from "path";
+import ws from "express-ws";
 import OpenAI, { toFile } from "openai";
 import { WebSocket } from "ws";
 import { OpenAIRoles, Client } from "./types";
-import ws from "express-ws"; // Import express-ws
 
 dotenv.config();
 const { app } = ws(express()); // Wrap the app with express-ws
@@ -13,6 +14,8 @@ app.use(express.json());
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("tiny"));
+// Serve static files from the React frontend app
+app.use(express.static(path.join(__dirname, "../../client/build")));
 
 const clients: { [key: string]: Client } = {};
 const openai = new OpenAI();
@@ -88,6 +91,10 @@ app.ws("/chat", (ws: WebSocket, req) => {
   ws.on("close", () => {
     delete clients[id];
   });
+});
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname + "/../../client/build/index.html"));
 });
 
 app.listen(3001, () => {
