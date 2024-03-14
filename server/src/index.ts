@@ -20,7 +20,7 @@ app.use(morgan("tiny"));
 const clients: { [key: string]: Client } = {};
 const openai = new OpenAI();
 const systemMessage =
-  "You are a helpful assistant whose main purpose is to provide information on chinese cooking. Only provide detailed recipes when explicitly asked. Respond in simplified chinese.";
+  "You are a helpful assistant whose main purpose is to provide information on chinese cooking. Only provide detailed recipes when explicitly asked. Do not answer any questions unrelated to food. Respond in simplified chinese.";
 
 app.ws("/chat", (ws: WebSocket, req) => {
   ws.binaryType = "arraybuffer";
@@ -41,7 +41,6 @@ app.ws("/chat", (ws: WebSocket, req) => {
     if (message instanceof ArrayBuffer) {
       // Convert the ArrayBuffer from the WebSocket message to a Buffer
       const buffer = Buffer.from(message);
-      fs.writeFileSync("./audio.wav", buffer);
       const transcription = await openai.audio.transcriptions.create({
         file: await toFile(buffer, "audio.wav", {
           type: "audio/wav",
@@ -73,7 +72,7 @@ app.ws("/chat", (ws: WebSocket, req) => {
       const speech = await openai.audio.speech.create({
         input: responseMessage.message.content || "",
         model: "tts-1",
-        voice: "alloy",
+        voice: "nova",
       });
 
       // Obtain audio binary data as a buffer

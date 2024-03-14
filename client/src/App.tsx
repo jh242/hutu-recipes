@@ -48,7 +48,7 @@ function App() {
       <h1>糊涂菜谱</h1>
       {conversation.map((message, index) => (
         <div key={index}>
-          <strong>{message.role}</strong>: {message.content}
+          <strong>{message.role}</strong>: <pre>{message.content}</pre>
         </div>
       ))}
       <ClipLoader loading={waitingForResponse} size={150} color={"#123abc"} />
