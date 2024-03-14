@@ -9,7 +9,7 @@
     "server": "nodemon ./server/dist/index.js",
     "client": "cd client && yarn start",
     "dev": "concurrently \"yarn server\" \"yarn client\"",
-    "start": "yarn build && yarn server"
+    "start": "yarn build && node ./server/dist/index.js"
   },
   "keywords": [],
   "author": "",
